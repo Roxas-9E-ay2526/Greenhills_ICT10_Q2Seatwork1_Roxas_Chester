@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Goon Squad - Robotic Verification System</title>
+    
+    <!-- PyScript Core -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2026.7.3/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2026.7.3/core.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,700;1,600&family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --obsidian: #080312;
+            --steel-dark: #0f071f;
+            --steel-card: #140b27;
+            --metal-border: #2e1852;
+            --neon-cyan: #00f3ff;
+            --neon-cyan-glow: rgba(0, 243, 255, 0.4);
+            --neon-gold: #ffb703;
+            --neon-gold-glow: rgba(255, 183, 3, 0.4);
+            --neon-magenta: #ff0055;
+            --neon-magenta-glow: rgba(255, 0, 85, 0.4);
+            --neon-green: #00ff66;
+            --text-main: #f1f5f9;
+            --text-muted: #7c68a3;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+            background-color: var(--obsidian);
+            background-image: 
+                radial-gradient(circle at 50% 30%, rgba(18, 0, 43, 0.8) 0%, transparent 75%),
+                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Ambient Particle Canvas */
+        #bgCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.5;
+        }
+
+        /* CRT Overlay Scanlines */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%);
+            background-size: 100% 4px;
+            z-index: 99;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Header Layout */
+        header {
+            text-align: center;
+            padding: 1.5rem 1rem 0.5rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 0 15px var(--neon-cyan-glow), 0 0 30px var(--neon-cyan-glow);
+        }
+
+        header .subtitle {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.4em;
+            color: var(--neon-gold);
+            text-transform: uppercase;
+            margin-top: 0.3rem;
+        }
+
+        /* Grid Layout with Sidebars */
+        .workspace {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 1.5rem;
+            padding: 1rem 1.5rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+            z-index: 10;
+            flex: 1;
+            align-items: center;
+        }
+
+        @media (max-width: 1024px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+            .sidebar-left, .sidebar-right {
+                display: none;
+            }
+        }
+
+        /* Sidebars Common Style */
+        .sidebar-pod {
+            background: rgba(15, 7, 31, 0.85);
+            border: 1px solid var(--metal-border);
+            border-radius: 12px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 243, 255, 0.03);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pod-title {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: var(--neon-cyan);
+            border-bottom: 1px dashed var(--metal-border);
+            padding-bottom: 0.5rem;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* LEFT SIDEBAR: Biometric Pod & Hydraulic Pistons */
+        .piston-assembly {
+            display: flex;
+            justify-content: space-around;
+            height: 110px;
+            padding: 0.5rem 0;
+            background: rgba(8, 3, 18, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            position: relative;
+        }
+
+        .piston {
+            width: 20px;
+            background: #1c1033;
+            border: 1px solid var(--metal-border);
+            border-radius: 4px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            overflow: hidden;
+        }
+
+        .piston-shaft {
+            width: 100%;
+            background: linear-gradient(180deg, var(--neon-cyan) 0%, #007799 100%);
+            border-radius: 2px;
+            box-shadow: 0 0 10px var(--neon-cyan-glow);
+            animation: hydraulicPump 2s ease-in-out infinite alternate;
+        }
+
+        .piston:nth-child(1) .piston-shaft { animation-delay: 0s; }
+        .piston:nth-child(2) .piston-shaft { animation-delay: 0.6s; }
+        .piston:nth-child(3) .piston-shaft { animation-delay: 1.2s; }
+
+        @keyframes hydraulicPump {
+            0% { height: 20%; }
+            100% { height: 85%; }
+        }
+
+        /* Cyber Radar Display */
+        .radar-box {
+            position: relative;
+            width: 100%;
+            height: 140px;
+            background: #080312;
+            border: 1px solid var(--metal-border);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .radar-sweep {
+            position: absolute;
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, rgba(0, 243, 255, 0.4) 0deg, transparent 60deg, transparent 360deg);
+            animation: radarSpin 4s linear infinite;
+        }
+
+        @keyframes radarSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .radar-grid {
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 1px stroke var(--neon-cyan);
+            background: 
+                radial-gradient(circle, transparent 30%, rgba(0, 243, 255, 0.1) 31%, transparent 32%),
+                radial-gradient(circle, transparent 60%, rgba(0, 243, 255, 0.1) 61%, transparent 62%);
+        }
+
+        .telemetry-log {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--neon-cyan);
+            background: #080312;
+            padding: 0.6rem;
+            border-radius: 6px;
+            border: 1px solid var(--metal-border);
+            height: 85px;
+            overflow: hidden;
+            line-height: 1.3;
+        }
+
+        /* RIGHT SIDEBAR: Security Turret & Data Reactor */
+        .turret-assembly {
+            position: relative;
+            height: 120px;
+            background: #080312;
+            border-radius: 8px;
+            border: 1px solid var(--metal-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .turret-reticle {
+            width: 80px; height: 80px;
+            border: 2px dashed var(--neon-magenta);
+            border-radius: 50%;
+            position: relative;
+            animation: rotateTurret 8s linear infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .turret-lens {
+            width: 30px; height: 30px;
+            background: radial-gradient(circle, var(--neon-magenta) 0%, var(--obsidian) 80%);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--neon-magenta-glow);
+            animation: pulseLens 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes rotateTurret {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulseLens {
+            0% { transform: scale(0.8); opacity: 0.7; }
+            100% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 25px var(--neon-magenta); }
+        }
+
+        /* Audio Waveform Bars */
+        .audio-meter {
+            display: flex;
+            gap: 4px;
+            height: 50px;
+            align-items: flex-end;
+            background: #080312;
+            padding: 0.5rem;
+            border-radius: 6px;
+            border: 1px solid var(--metal-border);
+        }
+
+        .wave-bar {
+            flex: 1;
+            background: var(--neon-gold);
+            border-radius: 2px;
+            animation: waveBounce 1.2s ease-in-out infinite alternate;
+        }
+
+        .wave-bar:nth-child(1) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(2) { animation-delay: 0.4s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.6s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(6) { animation-delay: 0.5s; }
+
+        @keyframes waveBounce {
+            0% { height: 15%; background: var(--metal-border); }
+            100% { height: 95%; background: var(--neon-gold); box-shadow: 0 0 8px var(--neon-gold); }
+        }
+
+        /* Mechanical Vault Bolts on Right Sidebar */
+        .vault-bolts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .bolt-housing {
+            height: 18px;
+            background: #080312;
+            border: 1px solid var(--metal-border);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bolt-piston {
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-gold), #b38000);
+            border-radius: 2px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .bolt-piston.actuated {
+            transform: translateX(150%);
+            background: linear-gradient(90deg, var(--neon-green), #00b347);
+        }
+
+        /* CENTER SECTION: Vault Card */
+        .vault-card {
+            background: rgba(20, 11, 39, 0.85);
+            border: 1px solid var(--metal-border);
+            border-top: 4px solid var(--neon-magenta);
+            border-bottom: 4px solid var(--neon-cyan);
+            border-radius: 16px;
+            padding: 2.2rem 2rem;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 243, 255, 0.08);
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+        }
+
+        /* Laser Sweep Scanner Line */
+        .laser-scanner {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            box-shadow: 0 0 15px var(--neon-cyan), 0 0 30px var(--neon-cyan);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .laser-scanning {
+            animation: laserScan 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            opacity: 1;
+        }
+
+        @keyframes laserScan {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+
+        /* Center Robotic Eye Core */
+        .scanner-core {
+            position: relative;
+            width: 100px; height: 100px;
+            margin: 0 auto 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .svg-robot-eye {
+            width: 100%; height: 100%;
+            filter: drop-shadow(0 0 12px var(--neon-cyan-glow));
+        }
+
+        .ring-outer {
+            transform-origin: center;
+            animation: rotateClockwise 12s linear infinite;
+        }
+
+        .ring-inner {
+            transform-origin: center;
+            animation: rotateCounterClockwise 8s linear infinite;
+        }
+
+        @keyframes rotateClockwise {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes rotateCounterClockwise {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        /* Input Controls */
+        .input-block {
+            margin-bottom: 1.3rem;
+            position: relative;
+        }
+
+        .input-block label {
+            display: block;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            color: var(--neon-cyan);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .input-block input[type="text"] {
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #fff;
+            background: #080312;
+            border: 1px solid var(--metal-border);
+            border-radius: 6px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-block input[type="text"]::placeholder {
+            color: #4a3869;
+            font-weight: 500;
+        }
+
+        .input-block input[type="text"]:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px var(--neon-cyan-glow);
+            background: #0f071f;
+        }
+
+        /* Action Button */
+        .btn-robotic {
+            width: 100%;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--obsidian);
+            background: linear-gradient(135deg, var(--neon-cyan) 0%, #00b8ff 100%);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px var(--neon-cyan-glow);
+        }
+
+        .btn-robotic:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(0, 243, 255, 0.6);
+            filter: brightness(1.1);
+        }
+
+        .btn-robotic:active {
+            transform: translateY(1px);
+        }
+
+        /* Result Container */
+        #result {
+            margin-top: 1.5rem;
+            padding: 1.2rem;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-align: center;
+            border-radius: 8px;
+            background: rgba(8, 3, 18, 0.95);
+            border: 1px solid var(--metal-border);
+            color: var(--text-main);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+            line-height: 1.5;
+            animation: resultPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #result:empty {
+            display: none;
+        }
+
+        @keyframes resultPop {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 1.2rem 1rem;
+            font-size: 0.85rem;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            border-top: 1px solid var(--metal-border);
+            background: #04010a;
+            position: relative;
+            z-index: 10;
+        }
+
+        footer span {
+            color: var(--neon-gold);
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Particle Canvas -->
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- Header -->
+    <header>
+        <h1>The Goon Squad</h1>
+        <p class="subtitle">Candidate Verification System</p>
+    </header>
+
+    <py-script src="main.py"></py-script>
+
+    <!-- Main Workspace with Animated Sidebars -->
+    <div class="workspace">
+        
+        <!-- LEFT SIDEBAR: Biometric Pod & Hydraulic Pistons -->
+        <div class="sidebar-pod sidebar-left">
+            <div class="pod-title">
+                <span>Biometric Pod</span>
+                <span style="color: var(--neon-green)">● ACTIVE</span>
+            </div>
+
+            <!-- Hydraulic Pistons -->
+            <div class="piston-assembly">
+                <div class="piston"><div class="piston-shaft"></div></div>
+                <div class="piston"><div class="piston-shaft"></div></div>
+                <div class="piston"><div class="piston-shaft"></div></div>
+            </div>
+
+            <!-- Cyber Radar Display -->
+            <div class="radar-box">
+                <div class="radar-sweep"></div>
+                <div class="radar-grid"></div>
+            </div>
+
+            <!-- Scrolling Telemetry Hex Log -->
+            <div class="telemetry-log" id="telemetryLog">
+                [SYS_INIT] Radar Online<br>
+                [HYD_PUMP] Pressure Normal<br>
+                [SEEK_ID] Awaiting Input...
+            </div>
+        </div>
+
+        <!-- CENTER SECTION: Vault Card -->
+        <main>
+            <div class="vault-card">
+                <!-- Sweeping Laser Scanner -->
+                <div class="laser-scanner" id="laserScanner"></div>
+
+                <!-- Robotic Eye Core SVG -->
+                <div class="scanner-core">
+                    <svg class="svg-robot-eye" viewBox="0 0 100 100">
+                        <circle class="ring-outer" cx="50" cy="50" r="44" fill="none" stroke="#00f3ff" stroke-width="2" stroke-dasharray="8 6 12 4" />
+                        <circle class="ring-inner" cx="50" cy="50" r="34" fill="none" stroke="#ffb703" stroke-width="1.5" stroke-dasharray="20 10" />
+                        <circle cx="50" cy="50" r="16" fill="#00f3ff" />
+                        <circle cx="50" cy="50" r="7" fill="#ffffff" />
+                    </svg>
+                </div>
+
+                <form onsubmit="return false;">
+                    <div class="input-block">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" placeholder="Enter first name" autocomplete="off" required>
+                    </div>
+
+                    <div class="input-block">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" placeholder="Enter last name" autocomplete="off" required>
+                    </div>
+
+                    <button type="button" class="btn-robotic" id="verifyBtn" py-click="candidate_checker">
+                        INITIATE VERIFICATION
+                    </button>
+                </form>
+
+                <div id="result"></div>
+            </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR: Security Turret & Data Reactor -->
+        <div class="sidebar-pod sidebar-right">
+            <div class="pod-title">
+                <span>Security Core</span>
+                <span style="color: var(--neon-magenta)">SECTOR 09</span>
+            </div>
+
+            <!-- Rotating Turret -->
+            <div class="turret-assembly">
+                <div class="turret-reticle">
+                    <div class="turret-lens"></div>
+                </div>
+            </div>
+
+            <!-- Audio Meter Waveform -->
+            <div class="audio-meter">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+            </div>
+
+            <!-- Mechanical Locking Bolts -->
+            <div class="vault-bolts-container">
+                <div class="bolt-housing"><div class="bolt-piston"></div></div>
+                <div class="bolt-housing"><div class="bolt-piston"></div></div>
+                <div class="bolt-housing"><div class="bolt-piston"></div></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        &copy; 2026 <span>The Goon Squad</span> &bull; Seatwork 1 &bull; 2nd Quarter
+    </footer>
+
+    <!-- Interactive JavaScript Helpers -->
+    <script>
+        // Background Particles
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let pts = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        for (let i = 0; i < 40; i++) {
+            pts.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vy: (Math.random() - 0.5) * 0.8,
+                r: Math.random() * 2 + 1
+            });
+        }
+
+        function animBG() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00f3ff';
+            pts.forEach(p => {
+                p.y += p.vy;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            requestAnimationFrame(animBG);
+        }
+        animBG();
+
+        // Audio SFX Generator
+        const AudioFX = {
+            ctx: null,
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            playScan() {
+                this.init(); if (!this.ctx) return;
+                let osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.5);
+                g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(g); g.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.5);
+            }
+        };
+
+        // Animation Triggers
+        function triggerRoboticScan() {
+            AudioFX.playScan();
+            document.getElementById("laserScanner").classList.add("laser-scanning");
+            document.querySelectorAll(".bolt-piston").forEach(b => b.classList.add("actuated"));
+            
+            const log = document.getElementById("telemetryLog");
+            log.innerHTML += "<br>[SCAN] Matching Bio-ID...";
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function concludeRoboticScan(isMember) {
+            document.getElementById("laserScanner").classList.remove("laser-scanning");
+            document.querySelectorAll(".bolt-piston").forEach(b => b.classList.remove("actuated"));
+
+            const resultBox = document.getElementById("result");
+            if (isMember) {
+                resultBox.style.borderColor = "var(--neon-green)";
+                resultBox.style.boxShadow = "inset 0 0 15px rgba(0, 255, 102, 0.2), 0 0 15px rgba(0, 255, 102, 0.2)";
+            } else {
+                resultBox.style.borderColor = "var(--neon-magenta)";
+                resultBox.style.boxShadow = "inset 0 0 15px rgba(255, 0, 85, 0.2), 0 0 15px rgba(255, 0, 85, 0.2)";
+            }
+        }
+   
